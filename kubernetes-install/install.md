@@ -1,6 +1,6 @@
 # Instalación
 
-Para la instalación del cluster de kubernetes levante tres máquinas virtuales con la siguiente configuración:
+Para la instalación del cluster de kubernetes levante tres máquinas virtuales linux ubuntu 24.04 con la siguiente configuración:
 
 ## Esquema de particionado recomendado
 
