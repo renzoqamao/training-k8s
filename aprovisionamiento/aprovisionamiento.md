@@ -438,6 +438,6 @@ Mi DNS hacia mi cluster es k8scp entonces para conectarme a la interfaz de longh
 * a traves de un ingress & ingress controller. Para mi caso: `https://k8scp:30198/#/dashboard`
 
 
-[⬅️ Anterior](../kubernetes-install/install.md) | [🏠 Volver al Inicio](../README.md) | [➡️ Siguiente](../readme-derecha.md)
+[⬅️ Anterior](../kubernetes-install/install.md) | [🏠 Volver al Inicio](../README.md) | [➡️ Siguiente](../postgres/postgres.md)
 
 
