@@ -3,9 +3,10 @@
 ##  Tabla de contenido 
 
 - [01. Instalación](./kubernetes-install/install.md)
-
+- [02. Tipos de aprovisionamiento](./aprovisionamiento/aprovisionamiento.md)
 
 ## Referencias
 
 - [Curso de Pabpereza](https://pabpereza.dev/docs/cursos/kubernetes)
 - [Repositorio de training de kubernetes para certificación](https://github.com/amartingarcia/kubernetes-cka-training)
+- [¿ Qué son los volúmenes persistentes en kubernetes?](https://www.netapp.com/blog/cvo-blg-static-vs-dynamic-storage-provisioning-a-look-under-the-hood/)

@@ -142,3 +142,7 @@ kubectl taint nodes masterk8s node-role.kubernetes.io/control-plane:NoSchedule-
 - La version de k8s es v1.31 `KUBERNETES_VERSION`.
 - Es posible utilizar calico o cilium, en este caso se utilizó calico.
 - En entornos productivos no se debería quitar la restricción de ejecución de pods en el nodo maestro.
+- El DNS name es `k8scp` apuntando al master del cluster.
+---
+
+[🏠 Volver al Inicio](../README.md) | [➡️ Siguiente](../aprovisionamiento/aprovisionamiento.md)
