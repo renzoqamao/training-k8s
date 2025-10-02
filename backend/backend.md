@@ -136,9 +136,9 @@ Vamos a crear un proyecto SpringBoot CRUD ReST con postgresql.
 
 ```properties
 # ya sabemos que es en kubernetes entonces colocamos el servicio interno (dev-psql-hl-svc).
-spring.datasource.url=jdbc:postgresql://dev-psql-hl-svc:5432/demo 
-spring.datasource.username=postgres
-spring.datasource.password=postgres
+spring.datasource.url=jdbc:postgresql://k8scp:30101/db
+spring.datasource.username=user
+spring.datasource.password=pass
 
 # JPA: no generar/alterar esquema automáticamente (lo hacemos nosotros)
 spring.jpa.hibernate.ddl-auto=none
