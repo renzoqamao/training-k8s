@@ -1,4 +1,4 @@
-# Despliegue de backend en java springboot
+# Despliegue de backend - java springboot en kubernetes
 
 ## Prerrequisito
 
@@ -155,3 +155,5 @@ management.health.probes.enabled=true
 3. En VSCode podemos instalar la extensión  `REST Client Huachao Mao` y utilizar [colors-api-http](./colors-api.http) 
 
 4. Desde el navegador podemos ver e interactuar con el swagger directamente `http://localhost:8080/swagger-ui/index.html`
+
+## Para llevarlo
