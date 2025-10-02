@@ -5,6 +5,7 @@
 - [01. Instalación](./kubernetes-install/install.md)
 - [02. Tipos de aprovisionamiento](./aprovisionamiento/aprovisionamiento.md)
 - [03. Despliegue de gestor de base de datos relacional](./postgres/postgres.md)
+- [04. Despliegue de backend](./backend/backend.md)
 
 ## Referencias
 
