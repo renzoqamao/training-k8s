@@ -1,0 +1,41 @@
+@baseUrl = http://localhost:8080
+@colorId = 1
+
+### Swagger UI (opcional)
+GET {{baseUrl}}/swagger-ui.html
+
+###
+# Listar todos los colores
+GET {{baseUrl}}/api/colors
+
+###
+# Obtener color por ID
+GET {{baseUrl}}/api/colors/{{colorId}}
+
+###
+# Crear color (ID autogenerado)
+POST {{baseUrl}}/api/colors
+Content-Type: application/json
+
+{
+  "name": "ORANGE",
+  "red": 255,
+  "green": 165,
+  "blue": 0
+}
+
+###
+# Actualizar color por ID
+PUT {{baseUrl}}/api/colors/{{colorId}}
+Content-Type: application/json
+
+{
+  "name": "ORANGE",
+  "red": 255,
+  "green": 140,
+  "blue": 0
+}
+
+###
+# Eliminar color por ID
+DELETE {{baseUrl}}/api/colors/{{colorId}}
