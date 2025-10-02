@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dev-sf-psql
+  namespace: ns-postgresql
+  labels:
+    app: psql
+    ver: dev-01
+spec:
+  serviceName: dev-psql-hl-svc
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app: psql
+      ver: dev-01
+  template:
+    metadata:
+      labels:
+        app: psql
+        ver: dev-01
+    spec:
+      securityContext: # Define la configuración de seguridad del Pod y los contenedores.
+        runAsUser: 999       # usuario postgres por defecto
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: "OnRootMismatch" # Indica a Kubernetes que solo cambie el dueño/grupo de un volumen si el grupo del sistema de archivos no coincide, acelerando la inicialización en volúmenes grandes.
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: dev-psql-cm
+            - secretRef:
+                name: dev-psql-secret
+          volumeMounts:
+            - name: pgdatavol
+              mountPath: /var/lib/postgresql/data
+          # Probes para salud:
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -h 127.0.0.1 -p 5432"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -h 127.0.0.1 -p 5432"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+  # Reclamo de almacenamiento con Longhorn (RWO)
+  volumeClaimTemplates: # <prefix-del-template>-<nombre-del-statefulset>-<ordinal> : ordinal hace referencia a la cantidad de replicas.
+    - metadata:
+        name: pgdatavol  # pgdatavol-dev-psql-01-0
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 1Gi
