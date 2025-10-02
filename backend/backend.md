@@ -125,6 +125,11 @@ Vamos a crear un proyecto SpringBoot CRUD ReST con postgresql.
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
       <version>2.6.0</version>
     </dependency>
+    <!-- Actuator -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
 ```
 
 2. Definimos las propiedades para postgresql en el properties
@@ -141,6 +146,10 @@ spring.jpa.show-sql=true
 
 # Swagger UI en /swagger-ui.html
 springdoc.swagger-ui.path=/swagger-ui.html
+
+# Actuator para Kubernetes
+management.endpoints.web.exposure.include=health,info
+management.health.probes.enabled=true
 ```
 
 3. En VSCode podemos instalar la extensión  `REST Client Huachao Mao` y utilizar [colors-api-http](./colors-api.http) 
