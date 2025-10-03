@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ns-backend
+  labels:
+    app: demo-backend
+    env: dev
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+        app: demo-backend
+        env: dev
+  template:
+    metadata:
+      labels:
+        app: demo-backend 
+        env: dev
+    spec:
+      containers:
+        - name: demo-backend
+          image: rrquispea/backend-colors:1.0.0 
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            # Spring busca config en /config
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: "file:/config/"
+            # Password del Secret (mapeada a spring.datasource.password)
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          volumeMounts:
+            - name: app-config
+              mountPath: /config               # Aquí montamos los application.properties
+              readOnly: true
+          # Probes (requieren actuator)
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+      volumes:
+        - name: app-config
+          configMap:
+            name: backend-cm
+            # Mapea el archivo del ConfigMap al directorio /config
+            items:
+              - key: application.properties
+                path: application.properties
