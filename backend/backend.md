@@ -4,6 +4,11 @@
 
  * OpenJDK 17
  * Apache Maven 3.8.8
+ * Ingress Controller nginx
+    ```powershell
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/baremetal/deploy.yaml
+    ```
+    se crea un service NodePort con puertos expuestos para http y https.
 
 1. Creamos el proyecto maven con el siguiente comando:
     ```
