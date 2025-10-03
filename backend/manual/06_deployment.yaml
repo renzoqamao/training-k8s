@@ -30,6 +30,14 @@ spec:
           ports:
             - containerPort: 8080
           env:
+            - name: BPL_JVM_HEAD_ROOM
+              value: "15"
+            - name: BPL_JVM_THREAD_COUNT
+              value: "80"
+            - name: BPL_JAVA_NMT_ENABLED
+              value: "false"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xss512k -XX:ReservedCodeCacheSize=128M -XX:+ExitOnOutOfMemoryError"
             # Spring busca config en /config
             - name: SPRING_CONFIG_ADDITIONAL_LOCATION
               value: "file:/config/"
@@ -44,6 +52,13 @@ spec:
               mountPath: /config               # Aquí montamos los application.properties
               readOnly: true
           # Probes (requieren actuator)
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            # 2s * 60 = hasta 120s para arrancar. Ajusta si necesitas más.
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
@@ -63,10 +78,10 @@ spec:
           resources:
             requests:
               cpu: "100m"
-              memory: "512Mi"
+              memory: "1Gi"
             limits:
               cpu: "500m"
-              memory: "1Gi"
+              memory: "1280Mi"
       volumes:
         - name: app-config
           configMap:
@@ -75,3 +90,11 @@ spec:
             items:
               - key: application.properties
                 path: application.properties
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["worker01"]
