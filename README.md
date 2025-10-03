@@ -6,7 +6,7 @@
 - [02. Tipos de aprovisionamiento](./aprovisionamiento/aprovisionamiento.md)
 - [03. Despliegue de gestor de base de datos relacional](./postgres/postgres.md)
 - [04. Despliegue de backend](./backend/backend.md)
-- [05. Implementando Escalamiento Horizontal de Pods (HPA)](./HPA/HPA.md)
+- [05. Implementando Autoescalamiento Horizontal de Pods (HPA)](./HPA/HPA.md)
 
 ## Referencias
 
