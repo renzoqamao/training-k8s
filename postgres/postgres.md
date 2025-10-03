@@ -199,4 +199,36 @@ También podemos visualizar en longhorn el volumen con sus replicas.
 
 > Nota: Con esta configuración si se borra el statefulset. El volumen no es afectado. Si vuelvo a desplegarlo, los datos siguen visualizandose.
 
+```mermaid
+flowchart LR
+  %% styles 
+  classDef ingress fill:#4FC3F7,stroke:#1976D2,color:#fff,stroke-width:1.5;
+  classDef svc     fill:#81D4FA,stroke:#1565C0,color:#fff,stroke-width:1.5;
+  classDef dep     fill:#66BB6A,stroke:#2E7D32,color:#fff,stroke-width:1.5;
+  classDef sts     fill:#F48FB1,stroke:#AD1457,color:#fff,stroke-width:1.5;
+  classDef cm      fill:#FFF8E1,stroke:#F4C04D,color:#333,stroke-width:1.5;
+  classDef sec     fill:#FDEFF0,stroke:#E08A95,color:#333,stroke-width:1.5;
+  classDef pvc     fill:#BBDEFB,stroke:#1976D2,color:#333,stroke-width:1.5;
+  classDef vol     fill:#E3F2FD,stroke:#64B5F6,color:#333,stroke-width:1.5;
+  Clients[[Clients]]
+  subgraph NS_ns-postgresql["Namespace= ns-postgresql"]
+    direction LR
+    Service_ns_postgresql_dev_psql_hl_svc["Service dev-psql-hl-svc<br/>5432 -> 5432"]:::svc
+    Service_ns_postgresql_postgres_service["Service postgres-service<br/>5432 -> 5432"]:::svc
+    StatefulSet_ns_postgresql_dev_sf_psql["StatefulSet dev-sf-psql<br/>replicas= 1"]:::sts
+    ConfigMap_ns_postgresql_dev_psql_cm["ConfigMap dev-psql-cm"]:::cm
+    Secret_ns_postgresql_dev_psql_secret["Secret dev-psql-secret"]:::sec
+  end
+  Clients --> Service_ns_postgresql_dev_psql_hl_svc
+  Clients --> Service_ns_postgresql_postgres_service
+  Service_ns_postgresql_dev_psql_hl_svc --> StatefulSet_ns_postgresql_dev_sf_psql
+  Service_ns_postgresql_postgres_service --> StatefulSet_ns_postgresql_dev_sf_psql
+  ConfigMap_ns_postgresql_dev_psql_cm -. mount/env .-> StatefulSet_ns_postgresql_dev_sf_psql
+  Secret_ns_postgresql_dev_psql_secret -. env var .-> StatefulSet_ns_postgresql_dev_sf_psql
+  PVC_ns_postgresql_dev_sf_psql_pgdatavol["PVC template pgdatavol"]:::pvc
+  StatefulSet_ns_postgresql_dev_sf_psql --> PVC_ns_postgresql_dev_sf_psql_pgdatavol
+  VOL_PVC_ns_postgresql_dev_sf_psql_pgdatavol["Data Volume"]:::vol
+  PVC_ns_postgresql_dev_sf_psql_pgdatavol --> VOL_PVC_ns_postgresql_dev_sf_psql_pgdatavol
+```
+
 [⬅️ Anterior](../aprovisionamiento/aprovisionamiento.md) | [🏠 Volver al Inicio](../README.md) | [➡️ Siguiente](../backend/backend.md) 
