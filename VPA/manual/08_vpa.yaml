@@ -1,0 +1,26 @@
+apiVersion: autoscaling.k8s.io/v1            # Versión estable del CRD de VPA. :contentReference[oaicite:0]{index=0}
+kind: VerticalPodAutoscaler                   # Tipo de recurso.
+metadata:
+  name: backend-vpa                           # Nombre del VPA.
+  namespace: ns-backend                       # Namespace donde vive el Deployment objetivo y donde va a crearse el vpa.
+spec:
+  targetRef:                                  # A qué workload aplica el VPA (objeto “controlador”).
+    apiVersion: apps/v1                       # Debe apuntar al recurso real (Deployment/StatefulSet/RS).
+    kind: Deployment
+    name: backend
+
+  updatePolicy:                               # ¿Cuándo aplica cambios el VPA?
+    updateMode: "Recreate"                        # Auto / Initial / Off / Recreate / InPlaceOrRecreate*. :contentReference[oaicite:1]{index=1}
+
+  resourcePolicy:                             # Reglas por contenedor (límites, mínimos, etc.)
+    containerPolicies:
+      - containerName: demo-backend           # Nombre EXACTO del contenedor del pod (usa '*' para todos).
+        # (opcional) Si quieres restringir a ciertos recursos:
+        # controlledResources: ["cpu","memory"]  # Por defecto VPA gestiona cpu y memory. 
+        minAllowed:                           # minimo permitido.
+          #cpu: 50m
+          memory: 256Mi
+        maxAllowed:                           # Máximo permitido.
+          #cpu: 500m                           
+          memory: 512Mi
+        controlledValues: "RequestsOnly" # VPA puede ajustar solo requests o requests+y limits. :contentReference[oaicite:2]{index=2}
