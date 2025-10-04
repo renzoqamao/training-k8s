@@ -136,4 +136,4 @@ Events:
 kubectl describe deploy backend -n ns-backend
 ```
 
-[⬅️ Anterior](../HPA/HPA.md) | [🏠 Volver al Inicio](../README.md)
+[⬅️ Anterior](../HPA/HPA.md) | [🏠 Volver al Inicio](../README.md) | [➡️ Siguiente](../initContainers/initContainers.md) 

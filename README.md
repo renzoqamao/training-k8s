@@ -8,7 +8,7 @@
 - [04. Despliegue de backend](./backend/backend.md)
 - [05. Implementando Autoescalamiento Horizontal de Pods (HPA)](./HPA/HPA.md)
 - [06. Implementando Autoescalamiento Vertical de Pods (VPA)](./VPA/VPA.md)
-
+- [07. Init Containers](./initContainers/initContainers.md)
 ## Referencias
 
 - [Curso de Pabpereza](https://pabpereza.dev/docs/cursos/kubernetes)
