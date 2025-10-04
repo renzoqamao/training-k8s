@@ -9,6 +9,8 @@
 - [05. Implementando Autoescalamiento Horizontal de Pods (HPA)](./HPA/HPA.md)
 - [06. Implementando Autoescalamiento Vertical de Pods (VPA)](./VPA/VPA.md)
 - [07. Init Containers](./initContainers/initContainers.md)
+- [08. Sidecars](./sidecar/sidecar.md)
+
 ## Referencias
 
 - [Curso de Pabpereza](https://pabpereza.dev/docs/cursos/kubernetes)
