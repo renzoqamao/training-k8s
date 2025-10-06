@@ -446,4 +446,97 @@ flowchart LR
   SEC -. env var .-> DEP
 ```
 
+## Affinity
+
+Util para definir donde se programa un Pod, existen tres tipos:
+
+- nodeAffinity → “en qué nodos puedo/quiero correr” (según labels del nodo).
+- podAffinity → “quiero estar junto a Pods con ciertas labels”.
+- podAntiAffinity → “no quiero estar junto a Pods con ciertas labels” (útil para distribuir réplicas).
+
+Además, cada una tiene dos “fuerzas”:
+
+- requiredDuringSchedulingIgnoredDuringExecution (duro): si no se cumple, no se agenda.
+- preferredDuringSchedulingIgnoredDuringExecution (blando): se intenta, pero si no se puede, igual agenda.
+
+## Taints/Tolerations
+
+Util para rechazar la programación de pods y nodos.
+
+- Taint (nodo): marca el nodo con una condición para rechazar pods.
+- Toleration (pod): permiso que lleva el pod para soportar (tolerar) esa taint y poder ser programado (o permanecer) allí.
+
+> Importante: tolerar ≠ obligar. Una toleration permite ir a ese nodo, pero no obliga; si quieres forzar o preferir nodos, usa además nodeSelector/nodeAffinity.
+
+### Tipo de Taints
+
+Cada taint tiene forma key=value:Effect. Los Effect más comunes:
+
+- NoSchedule → no programa pods nuevos sin la toleration.
+- PreferNoSchedule → intenta evitarlo, pero si no hay opción, programa igual.
+- NoExecute → además de no programar nuevos pods, expulsa pods existentes que no toleren la taint.
+
+Ejemplos reales:
+
+- node-role.kubernetes.io/control-plane=:NoSchedule (los control-plane suelen estar taint-eados para que no caigan workloads normales).
+- Taints de condiciones del nodo: node.kubernetes.io/not-ready:NoSchedule, node.kubernetes.io/disk-pressure:NoSchedule, etc.
+
+### Tolerations
+
+#### Por **operator**
+
+* **`Equal`** (el más común)
+  Coincide con una taint **exacta**: misma `key` **y** `value` (y opcionalmente `effect`).
+
+  ```yaml
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "backend"
+      effect: "NoSchedule"
+  ```
+* **`Exists`**
+  Coincide si **existe** la `key` (ignora el `value`).
+
+  * Con `key`: tolera cualquier valor de esa clave.
+  * **Sin `key`**: tolera **todas** las taints (peligroso si no acotas por `effect`).
+
+  ```yaml
+  # Existe la key "dedicated", cualquier valor
+  - key: "dedicated"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+  # Sin key: ¡toleras todo lo NoSchedule en el nodo!
+  - operator: "Exists"
+    effect: "NoSchedule"
+  ```
+
+#### Por **effect** (qué hace la taint en el nodo)
+
+* **`NoSchedule`**: sin toleration, el Pod **no se programa** allí.
+* **`PreferNoSchedule`**: el scheduler **evita** ese nodo, pero si no hay opción, lo programa.
+* **`NoExecute`**: además de no programar nuevos pods, **expulsa** los que ya están si no toleran.
+
+Ejemplo típico:
+
+```yaml
+- key: "gpu"
+  operator: "Equal"
+  value: "true"
+  effect: "NoSchedule"
+```
+
+#### Por **duración** (solo aplica a `NoExecute`)
+
+* **`tolerationSeconds`**: cuánto tiempo puede **permanecer** el Pod antes de ser expulsado.
+  Si se omite, **permanece indefinidamente** (si tolera `NoExecute`).
+
+```yaml
+- key: "spot"
+  operator: "Exists"
+  effect: "NoExecute"
+  tolerationSeconds: 300   # 5 minutos antes de evicción
+```
+
 [⬅️ Anterior](../postgres/postgres.md) | [🏠 Volver al Inicio](../README.md) | [➡️ Siguiente](../HPA/HPA.md) 
