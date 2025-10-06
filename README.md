@@ -14,3 +14,4 @@
 - [Repositorio de training de kubernetes para certificación](https://github.com/amartingarcia/kubernetes-cka-training)
 - [¿ Qué son los volúmenes persistentes en kubernetes?](https://www.netapp.com/blog/cvo-blg-static-vs-dynamic-storage-provisioning-a-look-under-the-hood/)
 - [Cómo usar un volumen persistente NFS externo en Kubernetes](https://www.itwonderlab.com/kubernetes-nfs/)
+- [Monitoreo en kubernetes](https://www.apptio.com/topics/kubernetes/monitoring/metrics-server/)
