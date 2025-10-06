@@ -1,2 +1,1 @@
-# Escalamiento Horizontal de Pods
-
+# Autoescalamiento Horizontal de Pods
