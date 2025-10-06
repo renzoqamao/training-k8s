@@ -1,0 +1,48 @@
+#@baseUrl = https://api.k8scp:30198
+@baseUrl = http://api.k8scp:32449
+@colorId = 1
+
+###
+# Listar todos los colores
+GET {{baseUrl}}/api/colors
+
+###
+# Obtener color por ID
+GET {{baseUrl}}/api/colors/{{colorId}}
+
+###
+# Crear color (ID autogenerado)
+POST {{baseUrl}}/api/colors
+Content-Type: application/json
+
+{
+  "name": "ORANGE",
+  "red": 255,
+  "green": 165,
+  "blue": 0
+}
+
+###
+# Actualizar color por ID
+PUT {{baseUrl}}/api/colors/{{colorId}}
+Content-Type: application/json
+
+{
+  "name": "ORANGE",
+  "red": 255,
+  "green": 140,
+  "blue": 0
+}
+
+###
+# Eliminar color por ID
+DELETE {{baseUrl}}/api/colors/{{colorId}}
+
+
+### Actuators
+# Sonda de vida (le dice al orquestador si la aplicación esta viva o muerta)
+GET {{baseUrl}}/actuator/health/liveness
+
+###
+# Sonda de preparación (le dice al orquestador si la aplicación esta lista para manejar peticiones de clientes)
+GET {{baseUrl}}/actuator/health/readiness

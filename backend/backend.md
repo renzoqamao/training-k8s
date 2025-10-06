@@ -192,3 +192,258 @@ Para desplegarlo en kubernetes es necesario tener acceso a al repositorio públi
   > Nota: Se puede crear un repositorio privado pero debe ser creado previamente o utilizar GHCR.
 
 
+4. Creación del namespace
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-backend
+```
+
+4. Creación de configuración pública (ConfigMap)
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-cm
+  namespace: ns-backend
+data:
+  # DEFAULT (se aplica siempre)
+  application.properties: |
+    spring.jpa.hibernate.ddl-auto=none
+    spring.jpa.show-sql=true
+    spring.datasource.url=jdbc:postgresql://dev-psql-hl-svc.ns-postgresql.svc.cluster.local:5432/db
+    spring.datasource.username=user
+    springdoc.swagger-ui.path=/swagger-ui.html
+    management.endpoints.web.exposure.include=health,info
+    management.health.probes.enabled=true
+
+```
+
+Este configmap se montará en `/config` para que spring lo pueda leer.
+
+5. Creación de configuración privada (Secret)
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: ns-backend
+type: Opaque
+data:
+  # echo -n 'pass' | base64
+  SPRING_DATASOURCE_PASSWORD: cGFzcw==
+```
+
+La contraseña se pasará como variable de entorno.
+
+6. Creación del deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ns-backend
+  labels:
+    app: demo-backend
+    env: dev
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+       app: demo-backend
+       env: dev
+  template:
+    metadata:
+      labels:
+       app: demo-backend 
+       env: dev
+    spec:
+      containers:
+        - name: demo-backend
+          image: rrquispea/backend-colors:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            # Spring busca config en /config
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: "file:/config/"
+            # Password del Secret (mapeada a spring.datasource.password)
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          volumeMounts:
+            - name: app-config
+              mountPath: /config               # Aquí montamos los application.properties
+              readOnly: true
+          # Probes (requieren actuator)
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+      volumes:
+        - name: app-config
+          configMap:
+            name: backend-cm
+            # Mapea el archivo del ConfigMap al directorio /config
+            items:
+              - key: application.properties
+                path: application.properties
+```
+
+7. Creación del servicio
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+  namespace: ns-backend
+  labels:
+    env: dev
+spec:
+  type: ClusterIP
+  selector:
+    app: demo-backend
+    env: dev
+  ports:
+    - name: http
+      port: 80          # puerto del Service
+      targetPort: 8080  # puerto del container en tu Deployment
+
+```
+
+8. Creación del ingress
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: ns-backend
+  annotations:
+    # (Opcional) Si necesitas CORS desde un frontend externo:
+    # nginx.ingress.kubernetes.io/enable-cors: "true"
+    # nginx.ingress.kubernetes.io/cors-allow-origin: "http://localhost:5173,http://tu-frontend.example"
+    # nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, OPTIONS"
+    # nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type"
+    # nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.k8scp
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  number: 80
+  # (Opcional) TLS: crea previamente el secret demo-tls con tu cert/clave
+  # tls:
+  #   - hosts:
+  #       - api.demo.local
+  #     secretName: demo-tls
+
+```
+
+9. Ejecutamos los siguientes comandos para crear los objetos en kubernetes:
+
+```bash
+kubectl apply -f .\01_ns.yaml                                                              
+namespace/ns-backend created
+kubectl apply -f .\02_cm.yaml
+configmap/backend-cm created
+kubectl apply -f .\03_secret.yaml
+secret/backend-secret created
+kubectl apply -f .\04_svc.yaml
+service/backend-svc created
+kubectl apply -f .\05_ingress.yaml
+ingress.networking.k8s.io/backend-ingress created
+kubectl apply -f .\06_deployment.yaml
+deployment.apps/backend created
+```
+
+10. En VSCode podemos instalar la extensión  `REST Client Huachao Mao` y utilizar [colors-api-http-k8s](./colors-api-k8s.http) 
+
+11. Desde el navegador podemos ver e interactuar con el swagger directamente `http://api.k8scp:32449/swagger-ui/index.html` 
+
+> Nota: En hosts definir api.k8scp con la IP de uno de los nodos del cluster. Mis puertos habilitados para http es 32449 y https es 30198
+
+12. Podemos visualizar el swagger y realizar peticiones
+
+  ![swagger](./img/swagger.png)
+
+
+```mermaid
+flowchart LR
+  %% ====== estilos ======
+  classDef ingress fill:#4FC3F7,stroke:#1976D2,color:#fff,stroke-width:1.5;
+  classDef svc     fill:#81D4FA,stroke:#1565C0,color:#fff,stroke-width:1.5;
+  classDef dep     fill:#66BB6A,stroke:#2E7D32,color:#fff,stroke-width:1.5;
+  classDef sts     fill:#F48FB1,stroke:#AD1457,color:#fff,stroke-width:1.5;
+  classDef cm      fill:#FFF8E1,stroke:#F4C04D,color:#333,stroke-width:1.5;
+  classDef sec     fill:#FDEFF0,stroke:#E08A95,color:#333,stroke-width:1.5;
+  classDef pvc     fill:#BBDEFB,stroke:#1976D2,color:#333,stroke-width:1.5;
+  classDef vol     fill:#E3F2FD,stroke:#64B5F6,color:#333,stroke-width:1.5;
+
+  Clients[[Clients]]
+
+  subgraph NSB[Helm/Workloads — ns-backend]
+    direction LR
+    IN["Ingress backend-ingress<br/>host= api.k8scp  /  path= /"]:::ingress
+    SVC["Service backend-svc<br/>80 → 8080"]:::svc
+    DEP["Deployment demo<br/>replicas=3"]:::dep
+    CM["ConfigMap demo-config<br/>mount /config<br/>application*.properties"]:::cm
+    SEC["Secret demo-db<br/>SPRING_DATASOURCE_PASSWORD"]:::sec
+  end
+
+  subgraph NSPG[storage — ns-postgresql]
+    direction LR
+    DBSVC["Service dev-psql-hl-svc (headless)<br/>FQDN= dev-psql-hl-svc.ns-postgresql.svc.cluster.local<br/>port 5432"]:::svc
+    STS["StatefulSet postgresql"]:::sts
+    PVC["PersistentVolumeClaim pgdatavol"]:::pvc
+    VOL["Data Volume LongHorn"]:::vol
+    DBSVC --> STS --> PVC --> VOL
+  end
+
+  Clients --> IN --> SVC --> DEP
+  DEP -->|JDBC 5432| DBSVC
+  CM -. mount .-> DEP
+  SEC -. env var .-> DEP
+```
+
+[⬅️ Anterior](../postgres/postgres.md) | [🏠 Volver al Inicio](../README.md)

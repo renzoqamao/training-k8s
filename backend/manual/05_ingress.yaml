@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: ns-backend
+  annotations:
+    # (Opcional) Si necesitas CORS desde un frontend externo:
+    # nginx.ingress.kubernetes.io/enable-cors: "true"
+    # nginx.ingress.kubernetes.io/cors-allow-origin: "http://localhost:5173,http://tu-frontend.example"
+    # nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, OPTIONS"
+    # nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type"
+    # nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.k8scp
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  number: 80
+  # (Opcional) TLS: crea previamente el secret demo-tls con tu cert/clave
+  # tls:
+  #   - hosts:
+  #       - api.demo.local
+  #     secretName: demo-tls

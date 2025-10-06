@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-cm
+  namespace: ns-backend
+data:
+  # DEFAULT (se aplica siempre)
+  application.properties: |
+    spring.jpa.hibernate.ddl-auto=none
+    spring.jpa.show-sql=true
+    spring.datasource.url=jdbc:postgresql://dev-psql-hl-svc.ns-postgresql.svc.cluster.local:5432/db
+    spring.datasource.username=user
+    springdoc.swagger-ui.path=/swagger-ui.html
+    management.endpoints.web.exposure.include=health,info
+    management.health.probes.enabled=true
