@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ns-backend
+  labels:
+    app: demo-backend
+    env: dev
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+        app: demo-backend
+        env: dev
+  template:
+    metadata:
+      labels:
+        app: demo-backend 
+        env: dev
+    spec:
+      initContainers:
+      - name: wait-for-db
+        image: busybox:1.36
+        command: ["sh","-c"]
+        args:
+          - >
+            set -eu;
+            echo "Esperando DB $DB_HOST:$DB_PORT...";
+            until nc -z "$DB_HOST" "$DB_PORT"; do
+              echo "aún no disponible..."; sleep 2;
+            done;
+            echo "DB lista Ok";
+        env:
+          - name: DB_HOST
+            value: "dev-psql-hl-svc.ns-postgresql.svc.cluster.local"
+          - name: DB_PORT
+            value: "5432"
+      containers:
+        - name: demo-backend
+          image: rrquispea/backend-colors:1.0.0 
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: BPL_JVM_HEAD_ROOM
+              value: "15"
+            - name: BPL_JVM_THREAD_COUNT
+              value: "80"
+            - name: BPL_JAVA_NMT_ENABLED
+              value: "false"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xss512k -XX:ReservedCodeCacheSize=128M -XX:+ExitOnOutOfMemoryError"
+            # Spring busca config en /config
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: "file:/config/"
+            # Password del Secret (mapeada a spring.datasource.password)
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          volumeMounts:
+            - name: app-config
+              mountPath: /config               # Aquí montamos los application.properties
+              readOnly: true
+          # Probes (requieren actuator)
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            # 2s * 60 = hasta 120s para arrancar. Ajusta si necesitas más.
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "300m"
+              memory: "512Mi"
+        - name: netshoot
+          image: nicolaka/netshoot:latest
+          command: ["bash","-lc","sleep infinity"]
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "100m", memory: "128Mi" }
+
+      volumes:
+        - name: app-config
+          configMap:
+            name: backend-cm
+            # Mapea el archivo del ConfigMap al directorio /config
+            items:
+              - key: application.properties
+                path: application.properties
+        # volumen con la config del JMX Exporter
+        - name: jmx-config
+          configMap:
+            name: jmx-config
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["worker01"]
