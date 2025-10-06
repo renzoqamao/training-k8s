@@ -78,10 +78,10 @@ spec:
           resources:
             requests:
               cpu: "100m"
-              memory: "1Gi"
+              memory: "256Mi"
             limits:
-              cpu: "500m"
-              memory: "1280Mi"
+              cpu: "300m"
+              memory: "512Mi"
       volumes:
         - name: app-config
           configMap:
