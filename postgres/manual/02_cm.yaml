@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dev-psql-cm
+  namespace: ns-postgresql
+data:
+  POSTGRES_DB: db
+  POSTGRES_USER: user
+  # PGDATA en subcarpeta para evitar conflictos con archivos iniciales de la imagen; define donde estará la data en el stateful.
+  PGDATA: /var/lib/postgresql/data/pgdata
