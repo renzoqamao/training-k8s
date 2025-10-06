@@ -164,4 +164,26 @@ management.health.probes.enabled=true
 
 5. Desde el navegador podemos ver e interactuar con el swagger directamente `http://localhost:8080/swagger-ui/index.html` 
 
-## Para llevarlo
+## Despliegue en kubernetes
+
+Para desplegarlo en kubernetes es necesario tener acceso a al repositorio público o privado de imagenes de docker.
+
+1. Creación de la imagen; se puede realizar por dockerfile o con maven.
+    El comando en powershell es el siguiente
+    ```powershell
+    mvn spring-boot:build-image "-Dspring-boot.build-image.imageName=rrquispea/backend-colors:1.0.0"
+    ```
+
+2. Realizamos un push de la imagen creada al repositorio creado.
+
+    ```powershell
+    docker push rrquispea/backend-colors:1.0.0
+    ```
+
+3. Se creará un repositorio público en dockerhub.
+
+  ![repositorio creado](./img/dockerRepository.png)
+
+  > Nota: Se puede crear un repositorio privado pero debe ser creado previamente o utilizar GHCR.
+
+
