@@ -1,0 +1,15 @@
+tmp/
+target/
+*.log
+*.class
+.DS_Store
+.idea/
+.vscode/
+*.iml
+out/
+build/
+node_modules/
+dist/
+.env
+*.swp
+*.bak
