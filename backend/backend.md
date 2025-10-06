@@ -151,9 +151,17 @@ springdoc.swagger-ui.path=/swagger-ui.html
 management.endpoints.web.exposure.include=health,info
 management.health.probes.enabled=true
 ```
+3. Se crean las siguientes clases:
 
-3. En VSCode podemos instalar la extensión  `REST Client Huachao Mao` y utilizar [colors-api-http](./colors-api.http) 
+  ```bash
+  backend\demo\src\main\java\pe\com\backend\demo\config\SchemaInitializer.java
+  backend\demo\src\main\java\pe\com\backend\demo\controllers\ColorController.java
+  backend\demo\src\main\java\pe\com\backend\demo\entities\Color.java
+  backend\demo\src\main\java\pe\com\backend\demo\repositories\ColorRepository.java
+  ```
 
-4. Desde el navegador podemos ver e interactuar con el swagger directamente `http://localhost:8080/swagger-ui/index.html`
+4. En VSCode podemos instalar la extensión  `REST Client Huachao Mao` y utilizar [colors-api-http](./colors-api.http) 
+
+5. Desde el navegador podemos ver e interactuar con el swagger directamente `http://localhost:8080/swagger-ui/index.html` 
 
 ## Para llevarlo
