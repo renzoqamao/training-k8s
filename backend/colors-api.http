@@ -39,3 +39,12 @@ Content-Type: application/json
 ###
 # Eliminar color por ID
 DELETE {{baseUrl}}/api/colors/{{colorId}}
+
+
+### Actuators
+# Sonda de vida (le dice al orquestador si la aplicación esta viva o muerta)
+GET {{baseUrl}}/actuator/health/liveness
+
+###
+# Sonda de preparación (le dice al orquestador si la aplicación esta lista para manejar peticiones de clientes)
+GET {{baseUrl}}/actuator/health/readiness
