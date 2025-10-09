@@ -438,6 +438,295 @@ Mi DNS hacia mi cluster es k8scp entonces para conectarme a la interfaz de longh
 * a traves de un ingress & ingress controller. Para mi caso: `https://k8scp:30198/#/dashboard`
 
 
+## ¿Para qué sirven múltiples StorageClasses?
+
+Cada aplicación tiene **diferentes necesidades de almacenamiento**. Con múltiples StorageClasses puedes optimizar:
+
+### 1. **Performance vs Redundancia**
+
+```yaml
+# StorageClass para BBDD críticas (máxima redundancia)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-critical
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"        # 3 copias (alta disponibilidad)
+  staleReplicaTimeout: "30"    # 30 min (detecta fallos rápido)
+  diskSelector: "ssd"          # Solo usa discos SSD
+  nodeSelector: "storage-tier:premium"
+```
+
+**RAZÓN**: Para PostgreSQL, MySQL, Elasticsearch → máxima durabilidad
+
+```yaml
+# StorageClass para desarrollo/testing (velocidad)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-dev
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "1"        # 1 copia (más rápido, menos espacio)
+  staleReplicaTimeout: "1440"  # 24h (no importa si tarda)
+```
+
+**RAZÓN**: Para entornos efímeros donde los datos no son críticos
+
+---
+
+### 2. **Tipos de carga de trabajo**
+
+```yaml
+# Para logs/métricas (escritura intensiva, lectura poco frecuente)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-logs
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "2"
+  dataLocality: "best-effort"  # Prioriza escribir local (más rápido)
+  replicaAutoBalance: "least-effort"
+```
+
+**RAZÓN**: Para Loki, Prometheus, logging → optimiza escritura
+
+```yaml
+# Para caché (puede perderse, lectura intensiva)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-cache
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "1"
+  dataLocality: "strict-local"  # SOLO en nodo local (máxima velocidad)
+```
+
+**RAZÓN**: Para Redis, Memcached → velocidad sobre durabilidad
+
+---
+
+### 3. **Backup y recuperación**
+
+```yaml
+# Para volúmenes con backup automático
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-backed-up
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "2"
+  recurringJobSelector: '[
+    {"name":"backup-daily", "isGroup":true}
+  ]'
+```
+
+**RAZÓN**: Aplica políticas de backup automáticas
+
+---
+
+### 4. **Separación por tipo de disco**
+
+```yaml
+# Solo SSD NVMe (máximo rendimiento)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-nvme
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "2"
+  diskSelector: "nvme"
+  nodeSelector: "storage-tier:nvme"
+```
+
+```yaml
+# Solo HDD (gran capacidad, bajo costo)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-hdd
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "2"
+  diskSelector: "hdd"
+  nodeSelector: "storage-tier:capacity"
+```
+
+**RAZÓN**: Para archivos grandes poco frecuentes (backups, archivos)
+
+---
+
+## Ejemplo Real: Arquitectura Completa
+
+```yaml
+# ============================================================================
+# ARQUITECTURA DE STORAGE CLASSES
+# ============================================================================
+
+# 1. TIER PLATINUM - Aplicaciones críticas
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-platinum
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Retain  # NO borra datos al eliminar PVC
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  diskSelector: "ssd,nvme"
+  dataLocality: "disabled"  # Distribuye en diferentes nodos (HA)
+  replicaAutoBalance: "best-effort"
+  fsType: "ext4"
+# USO: PostgreSQL producción, Elasticsearch, bases de datos críticas
+
+---
+# 2. TIER GOLD - Aplicaciones importantes
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-gold
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+parameters:
+  numberOfReplicas: "2"
+  staleReplicaTimeout: "1440"
+  diskSelector: "ssd"
+  dataLocality: "best-effort"
+  fsType: "ext4"
+# USO: MySQL staging, MongoDB, Redis persistente
+
+---
+# 3. TIER SILVER - Desarrollo y testing
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-silver
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"  # Por defecto
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+parameters:
+  numberOfReplicas: "2"
+  staleReplicaTimeout: "2880"
+  dataLocality: "best-effort"
+  fsType: "ext4"
+# USO: Default para la mayoría de workloads
+
+---
+# 4. TIER BRONZE - Efímero/Cache
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-bronze
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+parameters:
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+  dataLocality: "strict-local"  # Solo local (máxima velocidad)
+  fsType: "ext4"
+# USO: Caché, builds temporales, datos efímeros
+
+---
+# 5. STORAGE ESPECÍFICO - Archivos grandes
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-bulk
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Retain
+parameters:
+  numberOfReplicas: "2"
+  diskSelector: "hdd"
+  fsType: "ext4"
+# USO: Backups, archivos multimedia, datos históricos
+```
+
+## 🎯 Tabla de decisión: ¿Qué StorageClass usar?
+
+| Aplicación | StorageClass | Razón |
+|------------|--------------|-------|
+| **PostgreSQL Prod** | longhorn-platinum | Datos críticos, 3 réplicas, SSD |
+| **Elasticsearch** | longhorn-gold | I/O intensivo, 2 réplicas suficientes |
+| **Redis persistente** | longhorn-gold | Importante pero puede reconstruirse |
+| **MySQL Dev** | longhorn-silver | No crítico, 2 réplicas OK |
+| **Redis cache** | longhorn-bronze | Puede perderse, 1 réplica local |
+| **Prometheus** | longhorn-silver | Datos de métricas, retención corta |
+| **MinIO/Object Storage** | longhorn-bulk | Archivos grandes, HDD más económico |
+| **Jenkins builds** | longhorn-bronze | Datos temporales, velocidad > durabilidad |
+| **Backups** | longhorn-bulk | Gran capacidad, acceso infrecuente |
+
+## Beneficios de esta estrategia
+
+### **1. Performance adecuado**
+- BBDD → baja latencia (SSD, local)
+- Logs → alta escritura (optimizado)
+- Cache → máxima velocidad (strict-local)
+
+### **2. Gestión simplificada**
+```bash
+# Ver qué usa cada aplicación
+kubectl get pvc --all-namespaces -o custom-columns=\
+NAME:.metadata.name,\
+NAMESPACE:.metadata.namespace,\
+STORAGECLASS:.spec.storageClassName,\
+SIZE:.spec.resources.requests.storage
+```
+
+### **3. Troubleshooting fácil**
+```bash
+# "Esta BBDD va lenta"
+# Revisas: ¿Está usando longhorn-platinum o longhorn-bronze?
+# Si usa bronze → migra a platinum
+```
+
+## Parámetros importantes de Longhorn
+
+```yaml
+parameters:
+  # Réplicas
+  numberOfReplicas: "3"              # Cuántas copias (1-3)
+  
+  # Localidad de datos
+  dataLocality: "disabled"           # Distribuido (HA)
+  dataLocality: "best-effort"        # Prefiere local pero permite remoto
+  dataLocality: "strict-local"       # SOLO local (más rápido, menos HA)
+  
+  # Selección de discos/nodos
+  diskSelector: "ssd,nvme"           # Tags de discos a usar
+  nodeSelector: "storage-tier:premium"  # Tags de nodos a usar
+  
+  # Backup
+  recurringJobSelector: '[{"name":"backup-daily"}]'
+  
+  # Comportamiento
+  staleReplicaTimeout: "30"          # Minutos antes de marcar réplica como obsoleta
+  replicaAutoBalance: "best-effort"  # Rebalancea réplicas automáticamente
+  
+  # Sistema de archivos
+  fsType: "ext4"                     # ext4 o xfs
+  
+  # Acceso
+  migratable: "true"                 # Permite live migration
+```
+
+> Nota: Longhorn no sabe que disco es ssd o hhdd. Es necesario etiquetar los volumenes de los nodos por la interfaz de longhorn ó mediante el CRD de la configuración del nodo creado por longhorn. 
+
 [⬅️ Anterior](../kubernetes-install/install.md) | [🏠 Volver al Inicio](../README.md) | [➡️ Siguiente](../postgres/postgres.md)
 
 
