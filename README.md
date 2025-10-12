@@ -10,6 +10,7 @@
 - [06. Implementando Autoescalamiento Vertical de Pods (VPA)](./VPA/VPA.md)
 - [07. Init Containers](./initContainers/initContainers.md)
 - [08. Sidecars](./sidecar/sidecar.md)
+- [09. Despliegue de ElasticSearch](./esearch/esearch.md)
 
 ## Referencias
 
