@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: elasticsearch-netpol
+  namespace: elasticsearch
+spec:
+  podSelector:
+    matchLabels:
+      elasticsearch.k8s.elastic.co/cluster-name: elasticsearch
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          kibana.k8s.elastic.co/name: kibana
+    # Permite tráfico desde Kibana
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: mi-app
+    # Permite tráfico desde namespace de tu aplicación
+  - ports:
+    - protocol: TCP
+      port: 9300
+    from:
+    - podSelector:
+        matchLabels:
+          elasticsearch.k8s.elastic.co/cluster-name: elasticsearch
+    # Permite comunicación entre nodos de ES (transport port)

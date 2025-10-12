@@ -1,0 +1,77 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+  namespace: elasticsearch
+# RAZÓN de Kibana:
+# - Interface gráfica para Elasticsearch
+# - Visualización de datos
+# - Dev Tools para queries
+# - Gestión de índices, snapshots, etc.
+# - Monitoreo del cluster
+
+spec:
+  version: 8.11.0
+  # RAZÓN: Debe coincidir con la versión de Elasticsearch
+  
+  count: 1
+  # RAZÓN count: 1:
+  # - Kibana es stateless (no almacena datos)
+  # - 1 instancia es suficiente para desarrollo
+  # - En producción podrías usar 2+ para HA
+  
+  elasticsearchRef:
+    name: elasticsearch
+    # RAZÓN:
+    # - Conecta Kibana con el Elasticsearch del mismo namespace
+    # - ECK auto-configura:
+    #   - URL de conexión
+    #   - Credenciales (usa el usuario elastic)
+    #   - Certificados TLS si están habilitados
+    # - Si estuviera en otro namespace: 
+    #   name: elasticsearch
+    #   namespace: otro-namespace
+  
+  http:
+    service:
+      spec:
+        type: ClusterIP
+        # RAZÓN ClusterIP:
+        # - Acceso interno al cluster
+        # - Usarás port-forward: kubectl port-forward svc/kibana-kb-http 5601 -n elasticsearch
+        # - Para acceso externo: LoadBalancer o Ingress
+    
+    tls:
+      selfSignedCertificate:
+        disabled: true
+        # RAZÓN disabled: true:
+        # - Simplifica desarrollo (acceso HTTP simple)
+        # - En producción: false (HTTPS habilitado)
+  
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        resources:
+          requests:
+            memory: 1Gi
+            cpu: 500m
+            # RAZÓN:
+            # - Kibana necesita menos recursos que Elasticsearch
+            # - 1GB RAM suele ser suficiente para dev
+            # - CPU: 0.5 cores request, puede usar más si está disponible
+          limits:
+            memory: 2Gi
+            cpu: 2
+            # RAZÓN:
+            # - Permite burst cuando hay dashboards complejos
+            # - 2GB límite de memoria para evitar OOM
+        
+        env:
+        - name: NODE_OPTIONS
+          value: "--max-old-space-size=1024"
+          # RAZÓN:
+          # - Kibana corre en Node.js
+          # - Limita heap de Node.js a 1GB
+          # - Previene uso excesivo de memoria
+          # - Debe ser menor que el límite de memoria del container

@@ -1,0 +1,240 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+  namespace: elasticsearch
+# RAZÓN del metadata:
+# - name: será el prefijo de todos los recursos (pods, services, secrets)
+# - namespace: dónde vivirá todo
+
+spec:
+  version: 8.11.0
+  # RAZÓN: Versión de Elasticsearch a desplegar
+  # ECK se encarga de:
+  # - Descargar la imagen correcta
+  # - Aplicar configuraciones específicas de esa versión
+  # - Gestionar migraciones si actualizas la versión
+  
+  # --------------------------------------------------------------------------
+  # HTTP Configuration
+  # --------------------------------------------------------------------------
+  http:
+    service:
+      spec:
+        type: ClusterIP
+        # RAZÓN del tipo ClusterIP:
+        # - Solo accesible dentro del cluster (más seguro)
+        # - Para acceso externo usarías: LoadBalancer o NodePort
+        # - En local, usarás port-forward para acceder
+    tls:
+      selfSignedCertificate:
+        disabled: true
+        # RAZÓN disabled: true:
+        # - Simplifica desarrollo local (no necesitas gestionar certificados)
+        # - En producción deberías: disabled: false (TLS habilitado)
+        # - ECK auto-genera certificados si está habilitado
+  
+  # --------------------------------------------------------------------------
+  # NodeSets - Define grupos de nodos con roles específicos
+  # --------------------------------------------------------------------------
+  nodeSets:
+  - name: master-data
+    # RAZÓN del nombre:
+    # - Identificador del grupo de nodos
+    # - Los pods se llamarán: elasticsearch-es-master-data-0, -1, -2
+    # - Puedes tener múltiples nodeSets con roles diferentes
+    
+    count: 3
+    # RAZÓN count: 3:
+    # - Mínimo recomendado para evitar split-brain
+    # - Con 3 nodos master, el quorum es 2 (mayoría)
+    # - Si un nodo cae, el cluster sigue funcionando
+    
+    config:
+      # Configuración de Elasticsearch que irá en elasticsearch.yml
+      node.roles: ["master", "data", "ingest"]
+      # RAZÓN de los roles:
+      # - master: Puede ser elegido como master del cluster (gestiona metadata)
+      # - data: Almacena datos e índices
+      # - ingest: Puede procesar pipelines de ingest (transformaciones)
+      # 
+      # Nodos híbridos (master+data) son buenos para:
+      # - Clusters pequeños/medianos (como el tuyo)
+      # - Simplifica arquitectura
+      # En clusters grandes separarías: nodos master dedicados, data nodes, etc.
+      
+      node.store.allow_mmap: false
+      # RAZÓN:
+      # - Desactiva memory-mapped files
+      # - Útil en entornos con restricciones de memoria
+      # - Puede reducir rendimiento pero aumenta estabilidad en VMs
+      
+      xpack.security.enabled: true
+      # RAZÓN:
+      # - Habilita autenticación (usuario/password)
+      # - ECK auto-genera credenciales y las guarda en un Secret
+      # - Para obtener la password: 
+      #   kubectl get secret elasticsearch-es-elastic-user -n elasticsearch -o=jsonpath='{.data.elastic}' | base64 --decode
+      
+      xpack.security.transport.ssl.enabled: true
+      # RAZÓN:
+      # - Encripta comunicación entre nodos del cluster
+      # - Obligatorio cuando xpack.security.enabled: true
+      # - ECK gestiona los certificados automáticamente
+      
+      xpack.security.http.ssl.enabled: false
+      # RAZÓN:
+      # - Desactiva HTTPS en la API REST (simplifica desarrollo local)
+      # - En producción deberías usar: true
+      # - Si es true, accederías con https://localhost:9200
+    
+    # ------------------------------------------------------------------------
+    # PodTemplate - Personaliza los pods de Elasticsearch
+    # ------------------------------------------------------------------------
+    podTemplate:
+      metadata:
+        labels:
+          app: elasticsearch
+          # RAZÓN:
+          # - Facilita selección con kubectl (kubectl get pods -l app=elasticsearch)
+          # - Útil para NetworkPolicies, Services, etc.
+      
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - worker01
+        # ----------------------------------------------------------------------
+        # InitContainers - Se ejecutan ANTES del contenedor principal
+        # ----------------------------------------------------------------------
+        initContainers:
+        - name: sysctl
+          # RAZÓN de este initContainer:
+          # - Elasticsearch requiere vm.max_map_count >= 262144
+          # - Es un parámetro del kernel del host
+          # - Solo se puede cambiar con privilegios
+          securityContext:
+            privileged: true
+            # RAZÓN privileged: true:
+            # - Permite modificar parámetros del kernel
+            # - Solo se usa en initContainer (no en el contenedor principal)
+            # - Necesario para sysctl
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+          # ¿Qué hace?
+          # - sysctl modifica parámetros del kernel
+          # - vm.max_map_count: número máximo de áreas de memoria mapeadas
+          # - Elasticsearch usa mmap para índices (mejor rendimiento)
+          # - Sin esto, Elasticsearch no arranca
+        
+        - name: install-plugins
+          # RAZÓN (OPCIONAL):
+          # - Instala plugins de Elasticsearch antes de iniciar
+          # - Ejemplo: analysis-icu para soporte Unicode avanzado
+          # - Se ejecuta una vez al crear el pod
+          command:
+          - sh
+          - -c
+          - |
+            bin/elasticsearch-plugin install --batch analysis-icu
+          # Plugins útiles:
+          # - analysis-icu: Análisis de texto Unicode
+          # - repository-s3: Snapshots en AWS S3
+          # - discovery-ec2: Discovery en AWS
+        
+        # ----------------------------------------------------------------------
+        # Containers - El contenedor principal de Elasticsearch
+        # ----------------------------------------------------------------------
+        containers:
+        - name: elasticsearch
+          # RAZÓN del nombre:
+          # - ECK espera este nombre específico
+          # - No lo cambies o ECK no funcionará correctamente
+          
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms2g -Xmx2g"
+            # RAZÓN:
+            # - Xms: Heap inicial de Java
+            # - Xmx: Heap máximo de Java
+            # - Deben ser IGUALES (evita resize de heap = mejor rendimiento)
+            # - Regla: 50% de la RAM del pod, máximo 31GB
+            # - Para 4GB de RAM del pod → 2GB de heap
+            # 
+            # ⚠️ IMPORTANTE:
+            # - Nunca más de 31GB (compressed oops de JVM)
+            # - El resto de RAM es para: filesystem cache, Lucene, OS
+          
+          - name: READINESS_PROBE_TIMEOUT
+            value: "10"
+            # RAZÓN:
+            # - Timeout para el readiness probe
+            # - Si el cluster es lento al iniciar, aumenta esto
+            # - Evita que K8s mate pods prematuramente
+          
+          resources:
+            requests:
+              memory: 2Gi
+              cpu: 1
+              # RAZÓN de requests:
+              # - Garantiza estos recursos mínimos
+              # - K8s solo programa el pod si hay recursos disponibles
+              # - Afecta scheduling (dónde se coloca el pod)
+            
+            limits:
+              memory: 3Gi
+              cpu: 2
+              # RAZÓN de limits:
+              # - memory: DEBE ser igual a request para ES (evita OOM kills)
+              # - cpu: Puede ser mayor (permite burst)
+              # - Si se excede memory, K8s mata el pod (OOMKilled)
+          
+          # --------------------------------------------------------------------
+          # Probes - Salud del contenedor
+          # --------------------------------------------------------------------
+          # RAZÓN de las probes:
+          # - livenessProbe: ¿El proceso está vivo? Si falla → restart
+          # - readinessProbe: ¿Está listo para tráfico? Si falla → quita de Service
+          # - ECK configura estas automáticamente, pero podemos ajustarlas
+    
+    # ------------------------------------------------------------------------
+    # VolumeClaimTemplates - Almacenamiento persistente
+    # ------------------------------------------------------------------------
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+        # RAZÓN:
+        # - Nombre del volumen dentro del pod
+        # - Se monta en /usr/share/elasticsearch/data (path por defecto)
+      
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        # RAZÓN ReadWriteOnce:
+        # - Solo un nodo puede montar el volumen a la vez
+        # - Suficiente para StatefulSets (cada pod su volumen)
+        # - Alternativas:
+        #   - ReadWriteMany: múltiples nodos (no lo necesitas con StatefulSets)
+        #   - ReadOnlyMany: solo lectura desde múltiples nodos
+        
+        resources:
+          requests:
+            storage: 1Gi
+        # RAZÓN 30Gi:
+        # - Depende de cuántos datos esperas indexar
+        # - Elasticsearch recomienda 80% de uso máximo
+        # - Puedes expandir después si allowVolumeExpansion: true
+        # - Para producción: calcula basado en:
+        #   - Volumen diario de datos
+        #   - Retención (cuántos días de datos)
+        #   - Número de réplicas de índices
+        
+        storageClassName: longhorn-elasticsearch
+        # RAZÓN:
+        # - Usa la StorageClass que creamos antes
+        # - Longhorn provisionará el volumen automáticamente
+        # - Cada pod (0,1,2) tendrá su propio PVC/PV
